@@ -1,0 +1,46 @@
+{
+  "name": "tumblrip",
+  "version": "1.0.6",
+  "description": "Download photos from Tumblr",
+  "main": "./lib/tumblrip",
+  "scripts": {
+    "prepublish": "./node_modules/.bin/ubs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oorabona/tumblrip"
+  },
+  "keywords": [
+    "tumblr",
+    "blog",
+    "rip",
+    "backup",
+    "photo",
+    "video"
+  ],
+  "author": "Olivier ORABONA",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/oorabona/tumblrip/issues"
+  },
+  "files": [
+    "build.yml",
+    "lib",
+    "bin/tumblrip"
+  ],
+  "bin": {
+    "tumblrip": "./bin/tumblrip"
+  },
+  "preferGlobal": "true",
+  "homepage": "https://github.com/oorabona/tumblrip",
+  "dependencies": {
+    "mkdirp": "latest",
+    "nopt": "^3.0.4",
+    "q": "^1.4.1",
+    "request": "^2.65.0",
+    "ubs": "^0.6.3"
+  },
+  "devDependencies": {
+    "coffee-script": "^1.10.0"
+  }
+}
