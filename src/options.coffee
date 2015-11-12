@@ -53,11 +53,11 @@ shortOptions =
   rp: [ '--refresh-photos' ]
 
 showVersion = ->
-  log "tumblrip version #{VERSION}"
+  log "tumblrip version #{VERSION}\n"
   0
 
 showHelp = ->
-  log HELP
+  log HELP+'\n'
   0
 
 HELP = """
@@ -86,13 +86,11 @@ options:
   --refresh-photos [-rp]    : update photos
   --startAt [-s]            : start at a specific index in the posts database
                             : (default: 0)
-
 """
 
+# Parse command line arguments and define global options.
 exports.parse = ->
-  args = nopt longOptions, shortOptions
-
-  options = deepExtend {}, DEFAULT_OPTIONS, args
+  options = deepExtend {}, DEFAULT_OPTIONS, nopt longOptions, shortOptions
   deepExtend exports, options
 
   log.verbose = options.verbose

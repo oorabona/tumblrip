@@ -138,7 +138,8 @@ getPostsData = (blogname) ->
         else
           log.debug "Updating record #{found}", self.posts[found], 'with', array, '...\n'
           self.posts[found] = array
-
+        return
+        
       if options['refresh-db'] or (self.nbNewPosts >= 50 and self.total - start >= 50)
         process start + 50
       else
