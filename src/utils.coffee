@@ -64,7 +64,6 @@ exports.log.debug = (args...) ->
   return unless @DEBUG
   now = (Date.now() - appStartTime) / 1000.0
   process.stdout.write inColor @config.debug, 'DEBUG:', args...
-  # process.log inColor color, sprintf "[%06.3f] %s", now, text
 
 exports.pick = (from, what) ->
   obj = {}
@@ -92,9 +91,18 @@ exports.deepExtend = (object, extenders...) ->
 
   object
 
+###*
+# Finds value in an Array of Arrays
+# @param input: Array of Arrays like [[1,2,3],[4,5,6]]
+# @param index: Index (Integer) in the subarray to check value against
+# @param value: Value to look for
+# @param all: Boolean (default false), return first match or all matches
+# @returns {index|[indexes]} depending on the 'all' param (-1 means no match)
+###
 exports.findInSubArray = (input, index, value, all=false) ->
   {length} = input
 
+  # It is easier to think looping backwards (from last index down to 0)
   inner = (_index) ->
     loop
       _index--
