@@ -1,6 +1,6 @@
 {
   "name": "tumblrip",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Download photos from Tumblr",
   "main": "./lib/tumblrip",
   "scripts": {
@@ -34,6 +34,7 @@
   "preferGlobal": "true",
   "homepage": "https://github.com/oorabona/tumblrip",
   "dependencies": {
+    "bhttp": "^1.2.1",
     "mkdirp": "latest",
     "nopt": "^3.0.4",
     "q": "^1.4.1",
