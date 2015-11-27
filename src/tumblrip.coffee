@@ -5,48 +5,17 @@ util = require 'util'
 Q = require 'q'
 mkdirp = require 'mkdirp'
 URL = require 'url'
+bhttp = require 'bhttp'
 
 {ApiError, RejectError} = require './eh'
 {log, pick, findInSubArray} = require './utils'
 options = require './options'
+{allDone, promiseRetry} = require './promise-helpers'
 
 # Some common redefinitions
 readFile = Q.nfbind fs.readFile
 writeFile = Q.nfbind fs.writeFile
 statFile = Q.nfbind fs.stat
-
-# Promises helpers
-promiseRetry = (toRetry) ->
-  deferred = Q.defer()
-  {retries, delay} = options
-  factor = options['retry-factor']
-
-  userRejectError = options.rejectError or RejectError
-  randomizeRetry = options.retryRandom or false
-
-  _succeed = (returned) ->
-    deferred.resolve returned
-
-  _failed = (error) ->
-    if error instanceof RejectError or error instanceof userRejectError or --retries <= 0
-      log.error error.message, '\n'
-      log.error error.stack, '\n' if options.debug
-      deferred.reject error
-    else
-      timeToWait = if randomizeRetry then Math.random() * delay / 2 + delay / 2 else delay
-      log.warning error.message, '\n'
-      log.warning error.stack, '\n' if options.debug
-
-      Q.delay timeToWait
-      .then(->
-        toRetry()
-      ).then _succeed, _failed
-    return
-
-  Q().then(->
-    toRetry()
-  ).then _succeed, _failed
-  deferred.promise
 
 get = (uri, method='GET') ->
   opts =
@@ -110,7 +79,7 @@ getPostsData = (blogname) ->
         photoUrl = post['photo-url-1280']
         timestamp = post['unix-timestamp']
 
-        # We know for sure that the URL is a unique key to retrieve data.
+        # We know for sure that the URL is a unique 'key' to retrieve data.
         # File names are built by joining each part of the URL. This can make longer filenames though.
         outputFile = URL.parse(photoUrl).pathname.split('/').join ''
 
@@ -139,7 +108,7 @@ getPostsData = (blogname) ->
           log.debug "Updating record #{found}", self.posts[found], 'with', array, '...\n'
           self.posts[found] = array
         return
-        
+
       if options['refresh-db'] or (self.nbNewPosts >= 50 and self.total - start >= 50)
         process start + 50
       else
@@ -172,30 +141,34 @@ downloadFile = (output, url, timestamp) ->
       contentLength = parseInt response.headers['content-length']
       if !options.force and (size is contentLength)
         log.notice '! Skipping', output, 'file has the same size (', size, 'bytes).\n'
-        return Q.resolve 0
+        return false
 
-      statusCode = null
       log.debug 'Remote file size:', contentLength, 'local file:', size, '\n'
-      req = request.get url
-        .on 'error', (error) ->
-          Q.reject new ApiError 'While downloading file', error
-        .on 'response', (response) ->
+
+      bhttp.get url, stream:true
+    .then (stream) ->
+      if stream
+        stream.on 'progress', (completed, total) ->
+          log.info 'Download progress', path.basename(file), ':', ((completed / total) * 100).toFixed(2), '%\r'
+        stream.on 'error', (error) ->
+          log.error 'While writing to file', error
+        stream.on 'response', (response) ->
           {statusCode} = response
+          log.info 'in response', statusCode, '\n'
 
           # A bit hacky but basically, everything not 2XX has to be retried.
           if statusCode / 100 isnt 2
             Q.reject new ApiError 'While downloading file, wrong statusCode returned', statusCode
 
-          if /image/.test response.headers['content-type']
-            outputStream = fs.createWriteStream file
-            outputStream.on 'error', (error) ->
-              Q.reject new RejectError 'While writing to file', error
-
-            outputStream.on 'finish', ->
-              log.info "✔ #{url} (#{statusCode}) -> #{file}\n"
-              Q.resolve statusCode
-
-            req.pipe outputStream
+          unless /image/.test response.headers['content-type']
+            Q.reject new ApiError 'Content-Type mismatch:', response.headers['content-type']
+        stream.on 'finish', ->
+          if fileSize is expectedSize
+            log.info "✔ #{url} (#{statusCode}) -> #{file}\n"
+            Q(true)
+          else
+            Q.reject new ApiError 'Connection reset. Retrying.'
+        stream.pipe fs.createWriteStream file
 
 main = ->
   res = options.parse()
@@ -258,7 +231,7 @@ main = ->
       threads = posts[start...start+options.threads]
       log.debug "Starting at #{start}:", threads, '\n'
       # Turning the promise of an array into an array of promises
-      Q.all threads.map (post) ->
+      allDone threads.map (post) ->
         downloadFile.apply null, post
       .then -> Q.delay options.delay
       .then ->
