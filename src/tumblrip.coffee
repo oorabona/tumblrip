@@ -68,32 +68,44 @@ getPostsData = (blogname) ->
     .then (parsed) ->
       # If we have a total number of posts and we are in the first loop, we are going to update..
       {total} = self
+
+      # Whether we are updating or inserting, set these only once :)
       if init
-        # Should be positive unless we have less posts...
-        self.nbNewPosts = parsed['posts-total'] - total
-        # Whether we are updating or inserting, set these only once :)
-        self.total = total = parsed['posts-total']
         self.title = parsed.tumblelog.title
+
+        # If we have more posts on our cache than on remote site..
+        if parsed['posts-total'] < total
+          # .. We know that we might have (among probably those already downloaded)
+          # at most parsed['posts-total'] new pictures to download.
+          self.nbNewPosts = parsed['posts-total']
+        else
+          self.nbNewPosts = parsed['posts-total'] - total
+
+        self.total = total = parsed['posts-total']
 
       parsed.posts.forEach (post) ->
         photoUrl = post['photo-url-1280']
         timestamp = post['unix-timestamp']
 
-        # We know for sure that the URL is a unique 'key' to retrieve data.
-        # File names are built by joining each part of the URL. This can make longer filenames though.
+        # We first build a filename from concatening URL pathname. That should be
+        # unique enough but makes longer filenames.
         outputFile = URL.parse(photoUrl).pathname.split('/').join ''
 
-        # Again, URL are unique by definition. So we can safely use it as a PK.
-        # But if we are creating the database, do not bother searching for anything.
+        # Do not bother searching if the database (aka cache) is empty (creating db).
+        # Otherwise search for this URL in the cache db.
         if total is 0
           found = -1
         else
           found = findInSubArray self.posts, 1, photoUrl
 
+        # Sometimes we have a 'slug' attribute that might have a better (human meaningful)
+        # filename (everything is better than a long hex string right ?)
         if !!post.slug
           slugfile = "#{post.slug}#{path.extname photoUrl}"
           fileslug = findInSubArray self.posts, 0, slugfile, true
 
+          # If we already have more than one occurence or if that occurence does
+          # not link to the same file (the long hex string one), we have a conflict.
           if fileslug.length > 1 or (fileslug.length is 1 and fileslug[0] isnt found)
             log.info "Already got #{fileslug.length} of that name", slugfile, '. Using', outputFile, 'instead.\n'
           else
@@ -112,10 +124,10 @@ getPostsData = (blogname) ->
       if options['refresh-db'] or (self.nbNewPosts >= 50 and self.total - start >= 50)
         process start + 50
       else
-        # We could enforce check below, it would check if Tumblr API is giving us
-        # coherent results. But for testing purposes or if you want to tamper with
-        # the database and forget about updating 'total posts' accordingly, then this will
-        # raise an uncontinuable exception.
+        # Make sure we have all expected new posts. This is to make sure we have
+        # been given proper results from Tumblr API. Since this could also be a
+        # consequence of cache db tampering, this check, if enforced (opt in),
+        # will trigger an uncontinuable exception.
         if options.check and self.nbNewPosts isnt newPosts.length
           Q.reject new RejectError "BUG ? #{self.nbNewPosts} new posts but only got #{newPosts.length}"
         else
@@ -156,7 +168,7 @@ downloadFile = (output, url, timestamp) ->
           {statusCode} = response
           log.info 'in response', statusCode, '\n'
 
-          # A bit hacky but basically, everything not 2XX has to be retried.
+          # A bit hacky but basically, everything not 2XX will be retried.
           if statusCode / 100 isnt 2
             Q.reject new ApiError 'While downloading file, wrong statusCode returned', statusCode
 
@@ -212,7 +224,7 @@ main = ->
     log.info 'Duplicates:', total-posts.length, '\n'
 
     # Plain old JSON, should/can be optimized a bit..
-    # We remove 'nbNewPosts' since it will change everytime.
+    # We remove 'nbNewPosts' as it is going to change and not relevant to store.
     delete blog.nbNewPosts
     outputData = JSON.stringify blog
 

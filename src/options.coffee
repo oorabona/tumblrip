@@ -17,7 +17,7 @@ exports.DEFAULT_OPTIONS = DEFAULT_OPTIONS =
   startAt: 0
   'retry-factor': 2
   'refresh-db': false
-  'refresh-photos': false
+  'refresh-photos': true
 
 longOptions =
   version: Boolean
@@ -82,17 +82,22 @@ options:
                             : (default: 5)
   --retry-factor [-rf]      : if throttling, multiply delay by this factor
                             : (default: 2)
-  --refresh-db [-rd]        : update database
-  --refresh-photos [-rp]    : update photos
+  --refresh-db [-rd]        : update database (default: true)
+  --refresh-photos [-rp]    : update photos (default: true)
   --startAt [-s]            : start at a specific index in the posts database
                             : (default: 0)
 """
 
 # Parse command line arguments and define global options.
 exports.parse = ->
+  # Take default options and update them with command line arguments
   options = deepExtend {}, DEFAULT_OPTIONS, nopt longOptions, shortOptions
+
+  # We directly expose options to other modules
   deepExtend exports, options
 
+  # We need to do this to avoid circular reference between this module and the
+  # log module. Chicken and egg problem.
   log.verbose = options.verbose
   log.DEBUG = options.debug
   log.colors = options.colors
