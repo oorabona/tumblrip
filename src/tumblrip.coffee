@@ -76,7 +76,9 @@ getPostsData = (blogname) ->
 
   process = (start, init=false) ->
     log.debug "Processing at #{start}...\n"
-    # Get first round separately to know how many posts we will need to retrieve.
+    # We know we only want photos and the maximum item size is 50.
+    # These are not variables for the purpose of this tool, but could easily be
+    # modified to download other stuff from a Tumblr blog ! :)
     api "#{url}?type=photo&num=50&start=#{start}"
     .then (parsed) ->
       # If we have a total number of posts and we are in the first loop, we are going to update..
@@ -243,7 +245,7 @@ main = ->
       [cacheFile, {}]
   .spread (cacheFile, cache) ->
     # Populate cache with fresh data (insert/update)
-    [cacheFile, getPostsData.call cache]
+    [cacheFile, getPostsData.call cache, blogname]
   .spread (cacheFile, blog) ->
     {title, total, posts, nbNewPosts} = blog
     log.info 'Blog title:', title, '\n'
@@ -270,7 +272,12 @@ main = ->
     # If we want to refresh photos we can only count those we know they exist
     # in the blog. Any other file previously stored will never have a chance to
     # be downloaded again!
-    nbNewPosts = total if options['refresh-photos']
+    {startAt} = options
+    if options['refresh-photos']
+      if total < startAt
+        throw new Error "Starting at #{startAt} is above maximum blog photos #{total}!"
+      else
+        nbNewPosts = total - startAt
 
     if nbNewPosts > 0
       log.info "Processing #{nbNewPosts} photos on #{options.threads} threads.\n"
@@ -291,7 +298,7 @@ main = ->
           else
             threaded start
 
-      threaded options.startAt
+      threaded startAt
     else
       log.info 'No new picture. If you want to force update, add --refresh-photos [-rp].\n'
       1
