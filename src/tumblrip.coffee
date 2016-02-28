@@ -127,9 +127,9 @@ getPostsData = (blogname) ->
         # Make sure we have all expected new posts. This is to make sure we have
         # been given proper results from Tumblr API. Since this could also be a
         # consequence of cache db tampering, this check, if enforced (opt in),
-        # will trigger an uncontinuable exception.
+        # will throw an ApiError, meaning we can retry.
         if options.check and self.nbNewPosts isnt newPosts.length
-          Q.reject new RejectError "BUG ? #{self.nbNewPosts} new posts but only got #{newPosts.length}"
+          Q.reject new ApiError "BUG ? #{self.nbNewPosts} new posts but we got #{newPosts.length}"
         else
           # Prepend new posts (newest first like the API)
           self.posts = Array::concat.call [], newPosts, self.posts
@@ -237,27 +237,36 @@ main = ->
     else
       [blog.posts, total, nbNewPosts]
   .spread (posts, total, nbNewPosts) ->
-    log.info "Processing #{nbNewPosts} photos on #{options.threads} threads.\n"
+    # If we want to refresh photos we can only count those we know they exist
+    # in the blog. Any other file previously stored will never have a chance to
+    # be downloaded again!
+    nbNewPosts = total if options['refresh-photos']
 
-    threaded = (start) ->
-      threads = posts[start...start+options.threads]
-      log.debug "Starting at #{start}:", threads, '\n'
-      # Turning the promise of an array into an array of promises
-      allDone threads.map (post) ->
-        downloadFile.apply null, post
-      .then -> Q.delay options.delay
-      .then ->
-        start += options.threads
-        # Since the newest items are on the first indexes, we can stop when
-        # we reach (or go beyond) the 'nbNewPosts' value.
-        # This is incompatible with the use of 'startAt' argument.
-        if start > total or (!options['refresh-photos'] and options.startAt is 0 and start > nbNewPosts)
-          1
-        else
-          threaded start
+    if nbNewPosts > 0
+      log.info "Processing #{nbNewPosts} photos on #{options.threads} threads.\n"
 
-    threaded options.startAt
+      threaded = (start) ->
+        threads = posts[start...start+options.threads]
+        log.debug "Starting at #{start}:", threads, '\n'
+        # Turning the promise of an array into an array of promises
+        allDone threads.map (post) ->
+          downloadFile.apply null, post
+        .then -> Q.delay options.delay
+        .then ->
+          start += options.threads
+          # Since the newest items are on the first indexes, we can stop when
+          # we reach (or go beyond) the 'nbNewPosts' value.
+          if start > total or start > nbNewPosts
+            1
+          else
+            threaded start
+
+      threaded options.startAt
+    else
+      log.info 'No new picture. If you want to force update, add --refresh-photos [-rp].\n'
+      1
   .then (exitCode) ->
+    log.info "Done!\n"
     log.debug "Exit code: #{exitCode}\n"
     process.exit exitCode
   , (error) ->

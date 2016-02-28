@@ -17,7 +17,7 @@ exports.DEFAULT_OPTIONS = DEFAULT_OPTIONS =
   startAt: 0
   'retry-factor': 2
   'refresh-db': false
-  'refresh-photos': true
+  'refresh-photos': false
 
 longOptions =
   version: Boolean
