@@ -72,20 +72,20 @@ options:
   --version [-v]            : display version/build
   --help [-h]               : this help
   --delay [-d]              : add a delay (in ms) between requests
-                            : (default: 500, empty: random)
-  --debug [-D]              : enable more debug output (default: false)
-  --cache [-c]              : enable/disable cache (default: true)
-  --check [-C]              : enforce additional consistency checks (slower)
-  --force [-f]              : force overwrite if file exists (default: false)
-  --retries [-r]            : number of retries before giving up (default: 3)
+                            : (default: #{DEFAULT_OPTIONS['delay']}, empty: random)
+  --debug [-D]              : enable more debug output (default: #{DEFAULT_OPTIONS['debug']})
+  --cache [-c]              : enable/disable cache (default: #{DEFAULT_OPTIONS['cache']})
+  --check [-C]              : enforce additional consistency checks (slower) (default: #{DEFAULT_OPTIONS['check']})
+  --force [-f]              : force overwrite if file exists (default: #{DEFAULT_OPTIONS['force']})
+  --retries [-r]            : number of retries before giving up (default: #{DEFAULT_OPTIONS['retries']})
   --threads [-t]            : maximum simultaneous connections to tumblr.com
-                            : (default: 5)
+                            : (default: #{DEFAULT_OPTIONS['threads']})
   --retry-factor [-rf]      : if throttling, multiply delay by this factor
-                            : (default: 2)
-  --refresh-db [-rd]        : update database (default: true)
-  --refresh-photos [-rp]    : update photos (default: true)
+                            : (default: #{DEFAULT_OPTIONS['retry-factor']})
+  --refresh-db [-rd]        : update database (default: #{DEFAULT_OPTIONS['refresh-db']})
+  --refresh-photos [-rp]    : update photos (default: #{DEFAULT_OPTIONS['refresh-photos']})
   --startAt [-s]            : start at a specific index in the posts database
-                            : (default: 0)
+                            : (default: #{DEFAULT_OPTIONS['startAt']})
 """
 
 # Parse command line arguments and define global options.
