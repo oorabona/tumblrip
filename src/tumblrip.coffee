@@ -1,23 +1,32 @@
+# TumblRip -- Download photos from Tumblr
+# By: Olivier ORABONA
+
+# NodeJS imports
 fs = require 'fs'
 path = require 'path'
 request = require 'request'
-util = require 'util'
 Q = require 'q'
 mkdirp = require 'mkdirp'
 URL = require 'url'
 bhttp = require 'bhttp'
 
+# My own imports
 {ApiError, RejectError} = require './eh'
 {log, pick, findInSubArray} = require './utils'
 options = require './options'
 {allDone, promiseRetry} = require './promise-helpers'
 
-# Some common redefinitions
+# Make these functions Promise-able.
 readFile = Q.nfbind fs.readFile
 writeFile = Q.nfbind fs.writeFile
 statFile = Q.nfbind fs.stat
 
-get = (uri, method='GET') ->
+###*
+@name api -- communicate with remote server API
+@param uri (String): the URI to make call to
+@param method (String): method to call (by default it is GET)
+###
+api = (uri, method='GET') ->
   opts =
     uri: uri
     method: method
@@ -51,6 +60,10 @@ get = (uri, method='GET') ->
       else
         response
 
+###*
+@name getPostsData -- get all posts data from Tumblr blog
+@param blogname (String) : the blog name (we construct the URL from it)
+###
 getPostsData = (blogname) ->
   # Build url and retrieve all data
   url = "http://#{blogname}.tumblr.com/api/read/json"
@@ -64,7 +77,7 @@ getPostsData = (blogname) ->
   process = (start, init=false) ->
     log.debug "Processing at #{start}...\n"
     # Get first round separately to know how many posts we will need to retrieve.
-    get "#{url}?type=photo&num=50&start=#{start}"
+    api "#{url}?type=photo&num=50&start=#{start}"
     .then (parsed) ->
       # If we have a total number of posts and we are in the first loop, we are going to update..
       {total} = self
@@ -137,6 +150,14 @@ getPostsData = (blogname) ->
 
   process 0, true
 
+###*
+@name downloadFile -- Downloads a file but optimize by first issuing a HEAD request.
+@param output (String): output file name
+@param url (String): URL to download file from
+@param timestamp (String): specified because of return value being spreaded. Unused here.
+
+NOTE: We compare files not by their timestamp but by their file sizes.
+###
 downloadFile = (output, url, timestamp) ->
   file = "#{options.dest}/#{output}"
   try
@@ -148,7 +169,7 @@ downloadFile = (output, url, timestamp) ->
   {size} = stats if isFile
 
   promiseRetry ->
-    get url, 'HEAD'
+    api url, 'HEAD'
     .then (response) ->
       contentLength = parseInt response.headers['content-length']
       if !options.force and (size is contentLength)
@@ -182,9 +203,14 @@ downloadFile = (output, url, timestamp) ->
             Q.reject new ApiError 'Connection reset. Retrying.'
         stream.pipe fs.createWriteStream file
 
+###*
+@name main -- Everything starts here!
+###
 main = ->
+  # Parse options first
   res = options.parse()
-  # In that case, res is used as process exit code.
+
+  # If we have a number, we should stop right away.
   return res if typeof res is 'number'
 
   {blogname, dest} = options
@@ -206,6 +232,8 @@ main = ->
     options.dest = realDestination
     cacheFile = "#{options.dest}/.tumblrip"
 
+    # See if we already have a cache (.tumblrip file) in our destination directory.
+    # If so, load it, otherwise we start from an empty 'database'.
     try
       if fs.statSync(cacheFile).isFile()
         readFile cacheFile
@@ -214,7 +242,8 @@ main = ->
     catch e
       [cacheFile, {}]
   .spread (cacheFile, cache) ->
-    [cacheFile, getPostsData.call cache, blogname]
+    # Populate cache with fresh data (insert/update)
+    [cacheFile, getPostsData.call cache]
   .spread (cacheFile, blog) ->
     {title, total, posts, nbNewPosts} = blog
     log.info 'Blog title:', title, '\n'
@@ -223,9 +252,10 @@ main = ->
     log.info 'Blog unique photos:', posts.length, '\n'
     log.info 'Duplicates:', total-posts.length, '\n'
 
-    # Plain old JSON, should/can be optimized a bit..
     # We remove 'nbNewPosts' as it is going to change and not relevant to store.
     delete blog.nbNewPosts
+
+    # We store the 'database' as a plain old JSON, should/can be optimized a bit probably..
     outputData = JSON.stringify blog
 
     # Write "database" to outputdir/.tumblrip
