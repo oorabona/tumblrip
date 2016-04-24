@@ -291,9 +291,9 @@ main = ->
         .then -> Q.delay options.delay
         .then ->
           start += options.threads
-          # Since the newest items are on the first indexes, we can stop when
+          # Since posts array is sorted from the newest items, we can stop when
           # we reach (or go beyond) the 'nbNewPosts' value.
-          if start > total or start > nbNewPosts
+          if start > total or start >= nbNewPosts
             1
           else
             threaded start
