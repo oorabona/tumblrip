@@ -1,5 +1,6 @@
 # TumblRip -- Download photos from Tumblr
-# By: Olivier ORABONA
+# Made by Olivier ORABONA
+# Licence: MIT
 
 # NodeJS imports
 fs = require 'fs'
@@ -63,6 +64,7 @@ api = (uri, method='GET') ->
 ###*
 @name getPostsData -- get all posts data from Tumblr blog
 @param blogname (String) : the blog name (we construct the URL from it)
+@param this (Object) : database read from / written to
 ###
 getPostsData = (blogname) ->
   # Build url and retrieve all data
@@ -81,10 +83,10 @@ getPostsData = (blogname) ->
     # modified to download other stuff from a Tumblr blog ! :)
     api "#{url}?type=photo&num=50&start=#{start}"
     .then (parsed) ->
-      # If we have a total number of posts and we are in the first loop, we are going to update..
+      # Get total number of posts (when first time, this value is 0).
       {total} = self
 
-      # Whether we are updating or inserting, set these only once :)
+      # Update these global variables only once
       if init
         self.title = parsed.tumblelog.title
 
@@ -96,7 +98,9 @@ getPostsData = (blogname) ->
         else
           self.nbNewPosts = parsed['posts-total'] - total
 
-        self.total = total = parsed['posts-total']
+        # We do not set local variable 'total' which will remain set to its
+        # initial value. This will be used later for sub array find.
+        self.total = parsed['posts-total']
 
       parsed.posts.forEach (post) ->
         photoUrl = post['photo-url-1280']
@@ -113,7 +117,7 @@ getPostsData = (blogname) ->
         else
           found = findInSubArray self.posts, 1, photoUrl
 
-        # Sometimes we have a 'slug' attribute that might have a better (human meaningful)
+        # Sometimes we have a 'slug' attribute that might have a better (human readable)
         # filename (everything is better than a long hex string right ?)
         if !!post.slug
           slugfile = "#{post.slug}#{path.extname photoUrl}"
@@ -122,11 +126,15 @@ getPostsData = (blogname) ->
           # If we already have more than one occurence or if that occurence does
           # not link to the same file (the long hex string one), we have a conflict.
           if fileslug.length > 1 or (fileslug.length is 1 and fileslug[0] isnt found)
-            log.info "Already got #{fileslug.length} of that name", slugfile, '. Using', outputFile, 'instead.\n'
+            log.info "Already got #{fileslug.length} file(s) of that name '", slugfile, "'. Using '", outputFile, "' instead.\n"
           else
             outputFile = slugfile
 
-        array = [outputFile, photoUrl, timestamp]
+        # We build our database record as an array where
+        # outputFile: definitive file with name either slugfile || photoUrl
+        # photoUrl: the remote photo endpoint URL
+        # status: 'D' for 'delete', 'U' for 'update' (default action)
+        array = [outputFile, photoUrl, 'U']
 
         if found is -1
           log.debug 'Record not found, creating', array, '\n'
@@ -144,7 +152,7 @@ getPostsData = (blogname) ->
         # consequence of cache db tampering, this check, if enforced (opt in),
         # will throw an ApiError, meaning we can retry.
         if options.check and self.nbNewPosts isnt newPosts.length
-          Q.reject new ApiError "BUG ? #{self.nbNewPosts} new posts but we got #{newPosts.length}"
+          Q.reject new ApiError "BUG ? #{self.nbNewPosts} new posts but we got only #{newPosts.length} records!"
         else
           # Prepend new posts (newest first like the API)
           self.posts = Array::concat.call [], newPosts, self.posts
@@ -206,20 +214,20 @@ downloadFile = (output, url, timestamp) ->
         stream.pipe fs.createWriteStream file
 
 ###*
-@name main -- Everything starts here!
+@name main -- this starts here!
 ###
 main = ->
   # Parse options first
   res = options.parse()
 
-  # If we have a number, we should stop right away.
+  # If we have a number, we should stop right away (error code).
   return res if typeof res is 'number'
 
   {blogname, dest} = options
 
   # Promise to...
   Q.Promise (accept, reject, notify) ->
-    # Create destination if not existing.
+    # Create destination if it does not exist.
     try
       isDir = fs.statSync(dest).isDirectory()
 
@@ -235,7 +243,7 @@ main = ->
     cacheFile = "#{options.dest}/.tumblrip"
 
     # See if we already have a cache (.tumblrip file) in our destination directory.
-    # If so, load it, otherwise we start from an empty 'database'.
+    # If so, load it, otherwise we initialize an empty 'database'.
     try
       if fs.statSync(cacheFile).isFile()
         readFile cacheFile
