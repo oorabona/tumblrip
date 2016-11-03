@@ -15,6 +15,7 @@ exports.DEFAULT_OPTIONS = DEFAULT_OPTIONS =
   threads: 5
   retries: 3
   startAt: 0
+  limit: 0  # Unlimited
   'retry-factor': 2
   'refresh-db': false
   'refresh-photos': false
@@ -32,6 +33,7 @@ longOptions =
   retries: Number
   threads: Number
   startAt: Number
+  limit: Number
   'retry-factor': Number
   'refresh-db': Boolean
   'refresh-photos': Boolean
@@ -44,6 +46,7 @@ shortOptions =
   c: [ '--cache' ]
   C: [ '--check' ]
   f: [ '--force' ]
+  l: [ '--limit' ]
   r: [ '--retries' ]
   s: [ '--startAt' ]
   t: [ '--threads' ]
@@ -77,6 +80,7 @@ options:
   --cache [-c]              : enable/disable cache (default: #{DEFAULT_OPTIONS['cache']})
   --check [-C]              : enforce additional consistency checks (slower) (default: #{DEFAULT_OPTIONS['check']})
   --force [-f]              : force overwrite if file exists (default: #{DEFAULT_OPTIONS['force']})
+  --limit [-l]              : download that many pictures (default: unlimited)
   --retries [-r]            : number of retries before giving up (default: #{DEFAULT_OPTIONS['retries']})
   --threads [-t]            : maximum simultaneous connections to tumblr.com
                             : (default: #{DEFAULT_OPTIONS['threads']})

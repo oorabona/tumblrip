@@ -287,6 +287,10 @@ main = ->
       else
         nbNewPosts = total - startAt
 
+    # If user wants to limit the number of downloaded images, make sure it is not
+    # more than the maximum expected from Tumblr API.
+    nbNewPosts = options.limit if options.limit > 0 and options.limit < nbNewPosts
+
     if nbNewPosts > 0
       log.info "Processing #{nbNewPosts} photos on #{options.threads} threads.\n"
 
@@ -302,7 +306,7 @@ main = ->
           # Since posts array is sorted from the newest items, we can stop when
           # we reach (or go beyond) the 'nbNewPosts' value.
           if start > total or start >= nbNewPosts
-            1
+            nbNewPosts
           else
             threaded start
 
@@ -310,10 +314,9 @@ main = ->
     else
       log.info 'No new picture. If you want to force update, add --refresh-photos [-rp].\n'
       1
-  .then (exitCode) ->
-    log.info "Done!\n"
-    log.debug "Exit code: #{exitCode}\n"
-    process.exit exitCode
+  .then (nbNewPosts) ->
+    log.info "Processed #{nbNewPosts} images.\n"
+    process.exit nbNewPosts
   , (error) ->
     log.error error.message, '\n'
     log.debug error, '\n'
