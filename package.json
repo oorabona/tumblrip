@@ -1,6 +1,6 @@
 {
   "name": "tumblrip",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Download photos from Tumblr",
   "main": "./lib/tumblrip",
   "scripts": {

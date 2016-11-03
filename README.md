@@ -25,7 +25,7 @@ Usage
 =====
 
 ```
-tumblrip 1.0.8
+tumblrip 1.0.9
 usage: tumblrip [options] blogname [destination]
 
 http://<blogname>.tumblr.com/ will have photos retrieved to destination.
@@ -41,6 +41,7 @@ options:
   --cache [-c]              : enable/disable cache (default: true)
   --check [-C]              : enforce additional consistency checks (slower) (default: false)
   --force [-f]              : force overwrite if file exists (default: false)
+  --limit [-l]              : download that many pictures (default: unlimited)
   --retries [-r]            : number of retries before giving up (default: 3)
   --threads [-t]            : maximum simultaneous connections to tumblr.com
                             : (default: 5)
@@ -55,8 +56,7 @@ options:
 Notes
 =====
 
-The first [Q.Promise](https://github.com/kriskowal/q)-based Tumblr download tool
-I know of ! It shows different uses of ```Promise``` API.
+The first [Q.Promise](https://github.com/kriskowal/q)-based Tumblr download tool I know of ! It shows different uses of ```Promise``` API.
 
 License
 =======
