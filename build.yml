@@ -1,6 +1,5 @@
 init:
   plugins:
-    - mocha
     - clean
     - packagejson
 settings:
@@ -14,8 +13,6 @@ settings:
 build:
   - '%coffee% -b -o %libPath% -c %srcPath%'
   - echo Build done.
-test:
-  - task: mocha-test
 install:
   - task: build
   - echo Install done.
